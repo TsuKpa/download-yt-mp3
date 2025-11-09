@@ -1,0 +1,7 @@
+dist
+node_modules
+*-player-script.js
+downloads/
+errors.log
+yt-dlp
+.DS_Store

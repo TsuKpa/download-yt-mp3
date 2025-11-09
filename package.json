@@ -1,0 +1,38 @@
+{
+	"name": "download-mp3",
+	"version": "1.0.0",
+	"type": "module",
+	"description": "TypeScript CLI for downloading YouTube videos as MP3 files with list and direct modes.",
+	"main": "dist/index.js",
+	"scripts": {
+		"start": "tsx src/index.ts",
+		"build": "tsc"
+	},
+	"keywords": [
+		"youtube",
+		"mp3",
+		"cli",
+		"typescript"
+	],
+	"author": "",
+	"license": "MIT",
+	"dependencies": {
+		"@distube/ytdl-core": "^4.14.4",
+		"cli-progress": "^3.12.0",
+		"ffmpeg-static": "^5.2.0",
+		"fluent-ffmpeg": "^2.1.2",
+		"fs-extra": "^11.2.0",
+		"p-limit": "^4.0.0",
+		"yt-dlp-wrap": "^2.3.12",
+		"yt-search": "^2.11.1",
+		"ytpl": "^2.3.0"
+	},
+	"devDependencies": {
+		"@types/cli-progress": "^3.11.6",
+		"@types/fluent-ffmpeg": "^2.1.27",
+		"@types/fs-extra": "^11.0.4",
+		"@types/node": "^20.11.30",
+		"tsx": "^4.19.1",
+		"typescript": "^5.6.3"
+	}
+}
