@@ -117,6 +117,7 @@ DOWNLOAD_CONCURRENCY=10 npm start
 ## Output
 
 - MP3 files: `downloads/`
+- Success log: `downloaded.log` (tracks all successfully downloaded files with timestamps)
 - Error log: `errors.log`
 
 Each download shows real-time progress:

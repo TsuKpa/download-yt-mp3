@@ -8,6 +8,7 @@ export const DEFAULT_CONCURRENCY = 3;
 export const DEFAULT_SONGS_FILE = path.resolve(process.cwd(), 'songs.txt');
 export const DOWNLOADS_DIR = path.resolve(process.cwd(), 'downloads');
 export const ERRORS_LOG = path.resolve(process.cwd(), 'errors.log');
+export const DOWNLOADED_LOG = path.resolve(process.cwd(), 'downloaded.log');
 
 /**
  * Ensures the downloads directory exists so audio files have a target path.
@@ -89,6 +90,50 @@ export const logFailure = async (message: string): Promise<void> => {
 };
 
 /**
+ * Appends successfully downloaded file names to a persistent log for tracking.
+ * If playlist info is provided, logs it with playlist context.
+ */
+export const logSuccess = async (
+  filePath: string,
+  playlistTitle?: string,
+  playlistFolder?: string,
+): Promise<void> => {
+  const timestamp = new Date().toISOString();
+  const fileName = path.basename(filePath);
+  
+  if (playlistTitle && playlistFolder) {
+    const folderName = path.basename(playlistFolder);
+    await fs.appendFile(
+      DOWNLOADED_LOG,
+      `[${timestamp}] [PLAYLIST: ${playlistTitle}] [FOLDER: ${folderName}] ${fileName}\n`,
+    );
+  } else {
+    await fs.appendFile(DOWNLOADED_LOG, `[${timestamp}] ${fileName}\n`);
+  }
+};
+
+/**
+ * Logs a playlist download session summary with total count.
+ */
+export const logPlaylistSummary = async (
+  playlistTitle: string,
+  playlistFolder: string,
+  totalFiles: number,
+  completedFiles: number,
+): Promise<void> => {
+  const timestamp = new Date().toISOString();
+  const folderName = path.basename(playlistFolder);
+  await fs.appendFile(
+    DOWNLOADED_LOG,
+    `\n[${timestamp}] ========================================\n` +
+    `[${timestamp}] PLAYLIST SUMMARY: ${playlistTitle}\n` +
+    `[${timestamp}] FOLDER: ${folderName}\n` +
+    `[${timestamp}] COMPLETED: ${completedFiles}/${totalFiles} files\n` +
+    `[${timestamp}] ========================================\n\n`,
+  );
+};
+
+/**
  * Ensures a dedicated folder exists for playlist downloads and returns its path.
  */
 export const createPlaylistDirectory = async (playlistName: string): Promise<string> => {
@@ -96,6 +141,79 @@ export const createPlaylistDirectory = async (playlistName: string): Promise<str
   const playlistDir = path.resolve(DOWNLOADS_DIR, folderName);
   await fs.ensureDir(playlistDir);
   return playlistDir;
+};
+
+/**
+ * Scans a directory for files with numeric prefixes and returns the maximum number found.
+ * Returns 0 if no numbered files are found.
+ */
+export const getMaxNumberPrefix = async (dirPath: string): Promise<number> => {
+  try {
+    const exists = await fs.pathExists(dirPath);
+    if (!exists) {
+      return 0;
+    }
+
+    const files = await fs.readdir(dirPath);
+    let maxNumber = 0;
+
+    for (const file of files) {
+      // Match files starting with a number followed by a dot and space (e.g., "123. filename.mp3")
+      const match = file.match(/^(\d+)\.\s/);
+      if (match) {
+        const num = Number.parseInt(match[1], 10);
+        if (!Number.isNaN(num) && num > maxNumber) {
+          maxNumber = num;
+        }
+      }
+    }
+
+    return maxNumber;
+  } catch {
+    return 0;
+  }
+};
+
+/**
+ * Recursively scans the downloads directory and all subdirectories to find the maximum number prefix.
+ * This is useful for finding the next number when adding to existing playlists.
+ */
+export const getMaxNumberPrefixInDownloads = async (): Promise<number> => {
+  try {
+    const exists = await fs.pathExists(DOWNLOADS_DIR);
+    if (!exists) {
+      return 0;
+    }
+
+    let maxNumber = 0;
+
+    const scanDirectory = async (dirPath: string): Promise<void> => {
+      const entries = await fs.readdir(dirPath, { withFileTypes: true });
+
+      for (const entry of entries) {
+        const fullPath = path.resolve(dirPath, entry.name);
+
+        if (entry.isDirectory()) {
+          // Recursively scan subdirectories
+          await scanDirectory(fullPath);
+        } else if (entry.isFile()) {
+          // Match files starting with a number followed by a dot and space
+          const match = entry.name.match(/^(\d+)\.\s/);
+          if (match) {
+            const num = Number.parseInt(match[1], 10);
+            if (!Number.isNaN(num) && num > maxNumber) {
+              maxNumber = num;
+            }
+          }
+        }
+      }
+    };
+
+    await scanDirectory(DOWNLOADS_DIR);
+    return maxNumber;
+  } catch {
+    return 0;
+  }
 };
 
 /**

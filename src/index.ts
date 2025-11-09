@@ -16,10 +16,14 @@ import {
   cleanupPlayerScripts,
   createPlaylistDirectory,
   ensureDownloadsDir,
+  getMaxNumberPrefix,
+  getMaxNumberPrefixInDownloads,
   isAlreadyDownloaded,
   isYoutubeUrl,
   isYoutubePlaylistUrl,
   logFailure,
+  logSuccess,
+  logPlaylistSummary,
   readSongList,
   resolveOutputPath,
   sanitizeFileName,
@@ -214,13 +218,24 @@ const promptForPrefixChoice = async (): Promise<boolean> => {
 
 /**
  * Prompts for the starting number to use when applying numeric prefixes.
+ * If a default value is provided, the user can press Enter to accept it.
  */
-const promptForStartingNumber = async (): Promise<number> => {
+const promptForStartingNumber = async (defaultValue?: number): Promise<number> => {
   const rl = createInterface({ input: stdin, output: stdout });
   try {
     for (;;) {
-      const answer = await rl.question('Please enter the starting number: ');
-      const parsed = Number.parseInt(answer.trim(), 10);
+      const promptText = defaultValue !== undefined 
+        ? `Please enter the starting number [${defaultValue}]: `
+        : 'Please enter the starting number: ';
+      const answer = await rl.question(promptText);
+      const trimmed = answer.trim();
+      
+      // If user just presses Enter and we have a default, use it
+      if (trimmed === '' && defaultValue !== undefined) {
+        return defaultValue;
+      }
+      
+      const parsed = Number.parseInt(trimmed, 10);
       if (!Number.isNaN(parsed) && parsed >= 0) {
         return parsed;
       }
@@ -353,6 +368,13 @@ const runTask = async (
 
     bar.update(100, { title: truncateTitle(titledDisplay) });
 
+    // Log success with playlist info if available
+    await logSuccess(
+      finalPath,
+      task.mode === 'playlist' ? task.playlistTitle : undefined,
+      task.mode === 'playlist' ? targetDir : undefined,
+    );
+
     return {
       id: task.id,
       query: task.query,
@@ -465,7 +487,11 @@ const runDownloadSession = async (config: CliConfig): Promise<void> => {
     }
     let startNumber: number | undefined;
     if (await promptForPrefixChoice()) {
-      startNumber = await promptForStartingNumber();
+      // Scan ALL downloads folders to find the max number across all playlists
+      const maxExisting = await getMaxNumberPrefixInDownloads();
+      const suggestedStart = maxExisting + 1;
+      
+      startNumber = await promptForStartingNumber(suggestedStart);
       const endNumber = startNumber + tasks.length - 1;
       console.log(`You will mark files from ${startNumber} to ${endNumber}.`);
     }
@@ -504,6 +530,16 @@ const runDownloadSession = async (config: CliConfig): Promise<void> => {
   process.stdout.write('\n');
 
   printSummary(results);
+
+  // Log playlist summary if in playlist mode
+  if (config.mode === 'playlist' && tasks.length > 0) {
+    const playlistTitle = tasks[0]?.playlistTitle;
+    const playlistDir = tasks[0]?.outputDir;
+    if (playlistTitle && playlistDir) {
+      const completedCount = results.filter((r) => r.status === 'completed').length;
+      await logPlaylistSummary(playlistTitle, playlistDir, tasks.length, completedCount);
+    }
+  }
 };
 
 /**
