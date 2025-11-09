@@ -14,7 +14,7 @@
 		"cli",
 		"typescript"
 	],
-	"author": "",
+	"author": "TsuKpa",
 	"license": "MIT",
 	"dependencies": {
 		"@distube/ytdl-core": "^4.14.4",
